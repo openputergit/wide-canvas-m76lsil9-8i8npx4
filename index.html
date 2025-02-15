@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant POS System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        .menu-item:hover { transform: scale(1.02); }
+        .active-category { background-color: #4B5563; color: white; }
+        @media (max-width: 768px) {
+            .pos-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow">
+            <h1 class="text-2xl font-bold text-gray-800">Restaurant POS</h1>
+            <div class="flex gap-4">
+                <button id="new-order-btn" class="bg-blue-500 text-white px-4 py-2 rounded">
+                    <i class="bi bi-plus-lg"></i> New Order
+                </button>
+                <button id="settings-btn" class="bg-gray-500 text-white px-4 py-2 rounded">
+                    <i class="bi bi-gear"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid pos-grid grid-cols-3 gap-6">
+            <!-- Menu Section -->
+            <div class="col-span-2">
+                <!-- Categories -->
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <button class="category-btn active-category px-4 py-2 rounded" data-category="all">All</button>
+                    <button class="category-btn px-4 py-2 rounded bg-gray-200" data-category="starters">Starters</button>
+                    <button class="category-btn px-4 py-2 rounded bg-gray-200" data-category="main">Main Course</button>
+                    <button class="category-btn px-4 py-2 rounded bg-gray-200" data-category="desserts">Desserts</button>
+                    <button class="category-btn px-4 py-2 rounded bg-gray-200" data-category="drinks">Drinks</button>
+                </div>
+
+                <!-- Menu Items Grid -->
+                <div class="grid grid-cols-3 gap-4" id="menu-items">
+                    <!-- Menu items will be dynamically added here -->
+                </div>
+            </div>
+
+            <!-- Order Section -->
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h2 class="text-xl font-bold mb-4">Current Order #<span id="order-number">1001</span></h2>
+                <div class="mb-4">
+                    <select id="table-select" class="w-full p-2 border rounded">
+                        <option value="">Select Table</option>
+                        <option value="1">Table 1</option>
+                        <option value="2">Table 2</option>
+                        <option value="3">Table 3</option>
+                    </select>
+                </div>
+                <div id="order-items" class="h-96 overflow-y-auto mb-4">
+                    <!-- Order items will be added here -->
+                </div>
+                <div class="border-t pt-4">
+                    <div class="flex justify-between mb-2">
+                        <span>Subtotal:</span>
+                        <span id="subtotal">$0.00</span>
+                    </div>
+                    <div class="flex justify-between mb-2">
+                        <span>Tax (10%):</span>
+                        <span id="tax">$0.00</span>
+                    </div>
+                    <div class="flex justify-between mb-4 text-xl font-bold">
+                        <span>Total:</span>
+                        <span id="total">$0.00</span>
+                    </div>
+                    <button id="pay-btn" class="w-full bg-green-500 text-white py-3 rounded-lg mb-2">
+                        Pay Now
+                    </button>
+                    <button id="cancel-btn" class="w-full bg-red-500 text-white py-3 rounded-lg">
+                        Cancel Order
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample menu data
+        const menuItems = [
+            { id: 1, name: 'Caesar Salad', price: 8.99, category: 'starters' },
+            { id: 2, name: 'Garlic Bread', price: 4.99, category: 'starters' },
+            { id: 3, name: 'Grilled Salmon', price: 24.99, category: 'main' },
+            { id: 4, name: 'Beef Steak', price: 29.99, category: 'main' },
+            { id: 5, name: 'Chocolate Cake', price: 6.99, category: 'desserts' },
+            { id: 6, name: 'Ice Cream', price: 4.99, category: 'desserts' },
+            { id: 7, name: 'Coca Cola', price: 2.99, category: 'drinks' },
+            { id: 8, name: 'Coffee', price: 3.99, category: 'drinks' }
+        ];
+
+        let currentOrder = [];
+        let orderNumber = 1001;
+
+        // Initialize menu items
+        function displayMenuItems(category = 'all') {
+            const menuContainer = document.getElementById('menu-items');
+            menuContainer.innerHTML = '';
+
+            menuItems.forEach(item => {
+                if (category === 'all' || item.category === category) {
+                    const itemElement = document.createElement('div');
+                    itemElement.className = 'menu-item bg-white p-4 rounded-lg shadow cursor-pointer transition-transform duration-200';
+                    itemElement.innerHTML = `
+                        <h3 class="font-bold">${item.name}</h3>
+                        <p class="text-gray-600">$${item.price.toFixed(2)}</p>
+                    `;
+                    itemElement.onclick = () => addToOrder(item);
+                    menuContainer.appendChild(itemElement);
+                }
+            });
+        }
+
+        // Add item to order
+        function addToOrder(item) {
+            const existingItem = currentOrder.find(orderItem => orderItem.id === item.id);
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                currentOrder.push({ ...item, quantity: 1 });
+            }
+            updateOrderDisplay();
+        }
+
+        // Update order display
+        function updateOrderDisplay() {
+            const orderContainer = document.getElementById('order-items');
+            orderContainer.innerHTML = '';
+            
+            let subtotal = 0;
+            currentOrder.forEach(item => {
+                subtotal += item.price * item.quantity;
+                const itemElement = document.createElement('div');
+                itemElement.className = 'flex justify-between items-center mb-2 p-2 bg-gray-50 rounded';
+                itemElement.innerHTML = `
+                    <div>
+                        <span class="font-bold">${item.quantity}x</span> ${item.name}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span>$${(item.price * item.quantity).toFixed(2)}</span>
+                        <button onclick="removeFromOrder(${item.id})" class="text-red-500">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                `;
+                orderContainer.appendChild(itemElement);
+            });
+
+            const tax = subtotal * 0.1;
+            const total = subtotal + tax;
+
+            document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
+            document.getElementById('tax').textContent = `$${tax.toFixed(2)}`;
+            document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+        }
+
+        // Remove item from order
+        function removeFromOrder(itemId) {
+            currentOrder = currentOrder.filter(item => item.id !== itemId);
+            updateOrderDisplay();
+        }
+
+        // Event Listeners
+        document.querySelectorAll('.category-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active-category'));
+                e.target.classList.add('active-category');
+                displayMenuItems(e.target.dataset.category);
+            });
+        });
+
+        document.getElementById('new-order-btn').addEventListener('click', () => {
+            currentOrder = [];
+            orderNumber++;
+            document.getElementById('order-number').textContent = orderNumber;
+            document.getElementById('table-select').value = '';
+            updateOrderDisplay();
+        });
+
+        document.getElementById('pay-btn').addEventListener('click', () => {
+            if (currentOrder.length === 0) {
+                alert('Please add items to the order first!');
+                return;
+            }
+            if (!document.getElementById('table-select').value) {
+                alert('Please select a table!');
+                return;
+            }
+            alert('Payment processed successfully!');
+            currentOrder = [];
+            orderNumber++;
+            document.getElementById('order-number').textContent = orderNumber;
+            document.getElementById('table-select').value = '';
+            updateOrderDisplay();
+        });
+
+        document.getElementById('cancel-btn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to cancel this order?')) {
+                currentOrder = [];
+                document.getElementById('table-select').value = '';
+                updateOrderDisplay();
+            }
+        });
+
+        // Initialize
+        displayMenuItems();
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
